@@ -7706,13 +7706,12 @@ void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
 
 /* Configure static BGP network.  When user don't run zebra, static
    route should be installed as valid.  */
-int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
-		   const char *rd_str, const char *label_str, afi_t afi,
-		   safi_t safi, const char *rmap, int backdoor,
-		   uint32_t label_index, int evpn_type, const char *esi,
-		   const char *gwip, const char *ethtag, const char *routermac)
+int bgp_static_set(struct bgp *bgp, bool negate, const char *ip_str,
+                   const char *rd_str, const char *label_str, afi_t afi,
+                   safi_t safi, const char *rmap, int backdoor,
+                   uint32_t label_index, int evpn_type, const char *esi,
+                   const char *gwip, const char *ethtag, const char *routermac)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 	struct prefix p;
 	struct bgp_static *bgp_static;
@@ -7726,30 +7725,30 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 
 	/* Convert IP prefix string to struct prefix. */
 	ret = str2prefix(ip_str, &p);
-	if (!ret) {
-		vty_out(vty, "%% Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
-		vty_out(vty, "%% Malformed prefix (link-local address)\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+       if (!ret) {
+               zlog_warn("Malformed prefix");
+               return CMD_WARNING_CONFIG_FAILED;
+       }
+       if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
+               zlog_warn("Malformed prefix (link-local address)");
+               return CMD_WARNING_CONFIG_FAILED;
+       }
 
 	apply_mask(&p);
 
-	if (afi == AFI_L2VPN &&
-	    (bgp_build_evpn_prefix(evpn_type, ethtag != NULL ? atol(ethtag) : 0,
-				   &p))) {
-		vty_out(vty, "%% L2VPN prefix could not be forged\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+       if (afi == AFI_L2VPN &&
+           (bgp_build_evpn_prefix(evpn_type, ethtag != NULL ? atol(ethtag) : 0,
+                                  &p))) {
+               zlog_warn("L2VPN prefix could not be forged");
+               return CMD_WARNING_CONFIG_FAILED;
+       }
 
 	if (safi == SAFI_MPLS_VPN || safi == SAFI_EVPN) {
-		ret = str2prefix_rd(rd_str, &prd);
-		if (!ret) {
-			vty_out(vty, "%% Malformed rd\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+               ret = str2prefix_rd(rd_str, &prd);
+               if (!ret) {
+                       zlog_warn("Malformed rd");
+                       return CMD_WARNING_CONFIG_FAILED;
+               }
 
 		if (label_str) {
 			unsigned long label_val;
@@ -7760,29 +7759,28 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 	}
 
 	if (safi == SAFI_EVPN) {
-		if (esi && str2esi(esi, NULL) == 0) {
-			vty_out(vty, "%% Malformed ESI\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if (routermac && prefix_str2mac(routermac, NULL) == 0) {
-			vty_out(vty, "%% Malformed Router MAC\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+               if (esi && str2esi(esi, NULL) == 0) {
+                       zlog_warn("Malformed ESI");
+                       return CMD_WARNING_CONFIG_FAILED;
+               }
+               if (routermac && prefix_str2mac(routermac, NULL) == 0) {
+                       zlog_warn("Malformed Router MAC");
+                       return CMD_WARNING_CONFIG_FAILED;
+               }
 		if (gwip) {
 			memset(&gw_ip, 0, sizeof(gw_ip));
 			ret = str2prefix(gwip, &gw_ip);
 			if (!ret) {
-				vty_out(vty, "%% Malformed GatewayIp\n");
-				return CMD_WARNING_CONFIG_FAILED;
+                               zlog_warn("Malformed GatewayIp");
+                               return CMD_WARNING_CONFIG_FAILED;
 			}
 			if ((gw_ip.family == AF_INET &&
 			     is_evpn_prefix_ipaddr_v6((struct prefix_evpn *)&p)) ||
 			    (gw_ip.family == AF_INET6 &&
 			     is_evpn_prefix_ipaddr_v4(
 				     (struct prefix_evpn *)&p))) {
-				vty_out(vty,
-					"%% GatewayIp family differs with IP prefix\n");
-				return CMD_WARNING_CONFIG_FAILED;
+                               zlog_warn("GatewayIp family differs with IP prefix");
+                               return CMD_WARNING_CONFIG_FAILED;
 			}
 		}
 	}
@@ -7803,28 +7801,26 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 		/* Set BGP static route configuration. */
 		dest = bgp_node_lookup(bgp->route[afi][safi], &p);
 
-		if (!dest) {
-			vty_out(vty, "%% Can't find static route specified\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+               if (!dest) {
+                       zlog_warn("Can't find static route specified");
+                       return CMD_WARNING_CONFIG_FAILED;
+               }
 
 		bgp_static = bgp_dest_get_bgp_static_info(dest);
 		if (bgp_static) {
 			if ((label_index != BGP_INVALID_LABEL_INDEX) &&
 			    (label_index != bgp_static->label_index)) {
-				vty_out(vty,
-					"%% label-index doesn't match static route\n");
-				bgp_dest_unlock_node(dest);
-				return CMD_WARNING_CONFIG_FAILED;
-			}
+                               zlog_warn("label-index doesn't match static route");
+                               bgp_dest_unlock_node(dest);
+                               return CMD_WARNING_CONFIG_FAILED;
+                       }
 
 			if ((rmap && bgp_static->rmap.name) &&
 			    strcmp(rmap, bgp_static->rmap.name)) {
-				vty_out(vty,
-					"%% route-map name doesn't match static route\n");
-				bgp_dest_unlock_node(dest);
-				return CMD_WARNING_CONFIG_FAILED;
-			}
+                               zlog_warn("route-map name doesn't match static route");
+                               bgp_dest_unlock_node(dest);
+                               return CMD_WARNING_CONFIG_FAILED;
+                       }
 
 			/* Update BGP RIB. */
 			if (!bgp_static->backdoor)
@@ -7846,10 +7842,10 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 			/* Configuration change. */
 			/* Label index cannot be changed. */
 			if (bgp_static->label_index != label_index) {
-				vty_out(vty, "%% cannot change label-index\n");
-				bgp_dest_unlock_node(dest);
-				return CMD_WARNING_CONFIG_FAILED;
-			}
+                               zlog_warn("cannot change label-index");
+                               bgp_dest_unlock_node(dest);
+                               return CMD_WARNING_CONFIG_FAILED;
+                       }
 
 			/* Check previous routes are installed into BGP.  */
 			if (bgp_static->valid
@@ -8215,7 +8211,8 @@ DEFPY(bgp_network,
 	"Label index value\n"
 	"Specify a BGP backdoor route\n")
 {
-	char addr_prefix_str[BUFSIZ];
+       VTY_DECLVAR_CONTEXT(bgp, bgp);
+       char addr_prefix_str[BUFSIZ];
 
 	if (address_str) {
 		int ret;
@@ -8229,13 +8226,13 @@ DEFPY(bgp_network,
 		}
 	}
 
-	return bgp_static_set(vty, no,
-			      address_str ? addr_prefix_str : prefix_str, NULL,
-			      NULL, AFI_IP, bgp_node_safi(vty), map_name,
-			      backdoor ? 1 : 0,
-			      label_index ? (uint32_t)label_index
-					  : BGP_INVALID_LABEL_INDEX,
-			      0, NULL, NULL, NULL, NULL);
+       return bgp_static_set(bgp, no,
+                             address_str ? addr_prefix_str : prefix_str, NULL,
+                             NULL, AFI_IP, bgp_node_safi(vty), map_name,
+                             backdoor ? 1 : 0,
+                             label_index ? (uint32_t)label_index
+                                         : BGP_INVALID_LABEL_INDEX,
+                             0, NULL, NULL, NULL, NULL);
 }
 
 DEFPY(ipv6_bgp_network,
@@ -8250,11 +8247,12 @@ DEFPY(ipv6_bgp_network,
 	"Label index to associate with the prefix\n"
 	"Label index value\n")
 {
-	return bgp_static_set(vty, no, prefix_str, NULL, NULL, AFI_IP6,
-			      bgp_node_safi(vty), map_name, 0,
-			      label_index ? (uint32_t)label_index
-					  : BGP_INVALID_LABEL_INDEX,
-			      0, NULL, NULL, NULL, NULL);
+       VTY_DECLVAR_CONTEXT(bgp, bgp);
+       return bgp_static_set(bgp, no, prefix_str, NULL, NULL, AFI_IP6,
+                              bgp_node_safi(vty), map_name, 0,
+                              label_index ? (uint32_t)label_index
+                                          : BGP_INVALID_LABEL_INDEX,
+                              0, NULL, NULL, NULL, NULL);
 }
 
 static struct bgp_aggregate *bgp_aggregate_new(void)
