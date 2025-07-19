@@ -2072,7 +2072,8 @@ DEFUN(evpnrt5_network,
       "Route-map to modify the attributes\n"
       "Name of the route map\n")
 {
-	int idx_ipv4_prefixlen = 1;
+       VTY_DECLVAR_CONTEXT(bgp, bgp);
+       int idx_ipv4_prefixlen = 1;
 	int idx_route_distinguisher = 3;
 	int idx_label = 7;
 	int idx_esi = 9;
@@ -2080,12 +2081,12 @@ DEFUN(evpnrt5_network,
 	int idx_ethtag = 5;
 	int idx_routermac = 13;
 
-	return bgp_static_set(vty, false, argv[idx_ipv4_prefixlen]->arg,
-			      argv[idx_route_distinguisher]->arg,
-			      argv[idx_label]->arg, AFI_L2VPN, SAFI_EVPN, NULL,
-			      0, 0, BGP_EVPN_IP_PREFIX_ROUTE,
-			      argv[idx_esi]->arg, argv[idx_gwip]->arg,
-			      argv[idx_ethtag]->arg, argv[idx_routermac]->arg);
+       return bgp_static_set(bgp, false, argv[idx_ipv4_prefixlen]->arg,
+                              argv[idx_route_distinguisher]->arg,
+                              argv[idx_label]->arg, AFI_L2VPN, SAFI_EVPN, NULL,
+                              0, 0, BGP_EVPN_IP_PREFIX_ROUTE,
+                              argv[idx_esi]->arg, argv[idx_gwip]->arg,
+                              argv[idx_ethtag]->arg, argv[idx_routermac]->arg);
 }
 
 /* For testing purpose, static route of EVPN RT-5. */
@@ -2106,18 +2107,19 @@ DEFUN(no_evpnrt5_network,
       "ESI value ( 00:11:22:33:44:55:66:77:88:99 format) \n"
       "Gateway IP\n" "Gateway IP ( A.B.C.D )\n" "Gateway IPv6 ( X:X::X:X )\n")
 {
-	int idx_ipv4_prefixlen = 2;
+       VTY_DECLVAR_CONTEXT(bgp, bgp);
+       int idx_ipv4_prefixlen = 2;
 	int idx_ext_community = 4;
 	int idx_label = 8;
 	int idx_ethtag = 6;
 	int idx_esi = 10;
 	int idx_gwip = 12;
 
-	return bgp_static_set(vty, true, argv[idx_ipv4_prefixlen]->arg,
-			      argv[idx_ext_community]->arg,
-			      argv[idx_label]->arg, AFI_L2VPN, SAFI_EVPN, NULL,
-			      0, 0, BGP_EVPN_IP_PREFIX_ROUTE, argv[idx_esi]->arg,
-			      argv[idx_gwip]->arg, argv[idx_ethtag]->arg, NULL);
+       return bgp_static_set(bgp, true, argv[idx_ipv4_prefixlen]->arg,
+                              argv[idx_ext_community]->arg,
+                              argv[idx_label]->arg, AFI_L2VPN, SAFI_EVPN, NULL,
+                              0, 0, BGP_EVPN_IP_PREFIX_ROUTE, argv[idx_esi]->arg,
+                              argv[idx_gwip]->arg, argv[idx_ethtag]->arg, NULL);
 }
 
 static void evpn_import_rt_delete_auto(struct bgp *bgp, struct bgpevpn *vpn)
